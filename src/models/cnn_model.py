@@ -108,7 +108,9 @@ class MNISTCNNModel(nn.Module):
         try:
             # Convolutional layers
             self.conv_layers = nn.ModuleList()
-            self.bn_layers: Optional[nn.ModuleList] = nn.ModuleList() if self.use_batch_norm else None
+            self.bn_layers: Optional[nn.ModuleList] = (
+                nn.ModuleList() if self.use_batch_norm else None
+            )
 
             in_channels = self.input_channels
             for i, out_channels in enumerate(self.conv_channels):
@@ -132,7 +134,9 @@ class MNISTCNNModel(nn.Module):
 
             # Fully connected layers
             self.fc_layers = nn.ModuleList()
-            self.fc_bn_layers: Optional[nn.ModuleList] = nn.ModuleList() if self.use_batch_norm else None
+            self.fc_bn_layers: Optional[nn.ModuleList] = (
+                nn.ModuleList() if self.use_batch_norm else None
+            )
 
             fc_input_size = conv_output_size
             for i, hidden_dim in enumerate(self.fc_hidden_dims):
