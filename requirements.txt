@@ -1,5 +1,6 @@
 # Core ML/DL libraries
-# torch and torchvision installed separately in Dockerfile with CPU-only wheels
+torch>=2.0.0
+torchvision>=0.15.0
 numpy>=1.21.0
 scikit-learn>=1.0.0
 
