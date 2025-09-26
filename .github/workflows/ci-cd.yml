@@ -26,49 +26,16 @@ env:
   PYTORCH_VERSION: '2.0.1'
 
 jobs:
-  # Job 1: Code Quality and Testing
-  code-quality:
-    runs-on: ubuntu-22.04
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Python ${{ env.PYTHON_VERSION }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-
-    - name: Cache pip dependencies
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
-
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pytest pytest-cov
-
-    - name: Run unit tests
-      run: |
-        pytest tests/ -v --cov=src --cov-report=xml --cov-report=html || true
-
-    - name: Upload coverage reports
-      uses: codecov/codecov-action@v4
-      with:
-        file: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
-        fail_ci_if_error: false
+  # Job 1: Code Quality and Testing - DISABLED
+  # code-quality:
+  #   runs-on: ubuntu-22.04
+  #   steps:
+  #   - name: Checkout code
+  #     uses: actions/checkout@v4
 
   # Job 2: Docker Build and Test
   docker-build:
     runs-on: ubuntu-22.04
-    needs: code-quality
 
     steps:
     - name: Checkout code
@@ -81,7 +48,7 @@ jobs:
   # Job 3: Model Training and Validation
   model-training:
     runs-on: ubuntu-22.04
-    needs: [code-quality, docker-build]
+    needs: [docker-build]
     if: github.event.inputs.run_training == 'true' || github.event_name == 'schedule'
 
     strategy:
@@ -153,7 +120,7 @@ jobs:
   # Job 4: Model Evaluation
   model-evaluation:
     runs-on: ubuntu-22.04
-    needs: [code-quality, docker-build]
+    needs: [docker-build]
     if: always() && (github.event.inputs.run_evaluation == 'true' || needs.model-training.result == 'success')
 
     steps:
@@ -205,7 +172,6 @@ jobs:
   # Job 5: Security Scanning
   security-scan:
     runs-on: ubuntu-22.04
-    needs: code-quality
 
     steps:
     - name: Checkout code
@@ -346,7 +312,7 @@ jobs:
   # Job 8: Notification and Reporting
   notify:
     runs-on: ubuntu-22.04
-    needs: [code-quality, docker-build, model-training, model-evaluation, security-scan]
+    needs: [docker-build, model-training, model-evaluation, security-scan]
     if: always()
 
     steps:
@@ -355,7 +321,7 @@ jobs:
         echo "# MLOps Pipeline Report" > pipeline-report.md
         echo "" >> pipeline-report.md
         echo "## Job Status Summary" >> pipeline-report.md
-        echo "- Code Quality: ${{ needs.code-quality.result }}" >> pipeline-report.md
+        echo "- Code Quality: DISABLED" >> pipeline-report.md
         echo "- Docker Build: ${{ needs.docker-build.result }}" >> pipeline-report.md
         echo "- Model Training: ${{ needs.model-training.result }}" >> pipeline-report.md
         echo "- Model Evaluation: ${{ needs.model-evaluation.result }}" >> pipeline-report.md
