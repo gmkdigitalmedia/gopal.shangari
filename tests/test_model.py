@@ -10,6 +10,7 @@ import tempfile
 from pathlib import Path
 
 import sys
+
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 from src.models.cnn_model import MNISTCNNModel, create_model
@@ -32,7 +33,7 @@ class TestMNISTCNNModel:
             num_classes=5,
             conv_channels=(16, 32),
             fc_hidden_dims=(64,),
-            dropout_rate=0.3
+            dropout_rate=0.3,
         )
         assert model.num_classes == 5
         assert model.conv_channels == (16, 32)
@@ -80,11 +81,11 @@ class TestMNISTCNNModel:
         model = MNISTCNNModel()
         info = model.get_model_info()
 
-        assert 'model_type' in info
-        assert 'total_parameters' in info
-        assert 'num_classes' in info
-        assert info['model_type'] == 'CNN'
-        assert info['num_classes'] == 10
+        assert "model_type" in info
+        assert "total_parameters" in info
+        assert "num_classes" in info
+        assert info["model_type"] == "CNN"
+        assert info["num_classes"] == 10
 
     def test_model_serialization(self):
         """Test model saving and loading."""
@@ -114,11 +115,7 @@ class TestMNISTCNNModel:
 
     def test_create_model_factory(self):
         """Test model factory function."""
-        config = {
-            'num_classes': 10,
-            'conv_channels': (16, 32),
-            'fc_hidden_dims': (64,)
-        }
+        config = {"num_classes": 10, "conv_channels": (16, 32), "fc_hidden_dims": (64,)}
 
         model = create_model(config)
         assert model is not None

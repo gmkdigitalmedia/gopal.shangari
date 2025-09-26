@@ -9,6 +9,7 @@ import torch
 from pathlib import Path
 
 import sys
+
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 from src.data.data_loader import MNISTDataLoader, create_data_loaders
@@ -28,10 +29,7 @@ class TestMNISTDataLoader:
     def test_data_loader_creation_custom(self):
         """Test data loader creation with custom parameters."""
         loader = MNISTDataLoader(
-            batch_size=32,
-            validation_split=0.2,
-            num_workers=2,
-            download=False
+            batch_size=32, validation_split=0.2, num_workers=2, download=False
         )
         assert loader.batch_size == 32
         assert loader.validation_split == 0.2
@@ -60,13 +58,8 @@ class TestMNISTDataLoader:
     def test_custom_transform_config(self):
         """Test custom transform configuration."""
         transform_config = {
-            'train': {
-                'normalize': {'mean': [0.5], 'std': [0.5]},
-                'rotation': 15
-            },
-            'test': {
-                'normalize': {'mean': [0.5], 'std': [0.5]}
-            }
+            "train": {"normalize": {"mean": [0.5], "std": [0.5]}, "rotation": 15},
+            "test": {"normalize": {"mean": [0.5], "std": [0.5]}},
         }
 
         loader = MNISTDataLoader(transform_config=transform_config, download=False)
@@ -77,11 +70,7 @@ class TestMNISTDataLoader:
     def test_data_loading_with_download(self):
         """Test actual data loading (requires internet connection)."""
         try:
-            loader = MNISTDataLoader(
-                batch_size=32,
-                validation_split=0.1,
-                download=True
-            )
+            loader = MNISTDataLoader(batch_size=32, validation_split=0.1, download=True)
             train_loader, val_loader, test_loader = loader.load_data()
 
             assert train_loader is not None
@@ -90,7 +79,7 @@ class TestMNISTDataLoader:
             # Check data shapes
             data_batch, label_batch = next(iter(train_loader))
             assert data_batch.shape[0] <= 32  # Batch size
-            assert data_batch.shape[1] == 1   # Channels
+            assert data_batch.shape[1] == 1  # Channels
             assert data_batch.shape[2] == 28  # Height
             assert data_batch.shape[3] == 28  # Width
             assert label_batch.shape[0] <= 32
@@ -100,6 +89,7 @@ class TestMNISTDataLoader:
 
     def test_validation_data_integrity(self):
         """Test data integrity validation with synthetic data."""
+
         # Create a simple synthetic dataset for testing
         class MockDataset(torch.utils.data.Dataset):
             def __init__(self, valid=True):
@@ -112,7 +102,10 @@ class TestMNISTDataLoader:
                 if self.valid:
                     return torch.randn(1, 28, 28), torch.randint(0, 10, (1,)).item()
                 else:
-                    return torch.randn(3, 28, 28), torch.randint(0, 10, (1,)).item()  # Wrong channels
+                    return (
+                        torch.randn(3, 28, 28),
+                        torch.randint(0, 10, (1,)).item(),
+                    )  # Wrong channels
 
         # Test with valid data
         valid_dataset = MockDataset(valid=True)
@@ -133,7 +126,7 @@ class TestDataLoaderFactory:
 
     def test_create_data_loaders_default(self):
         """Test data loader factory with default config."""
-        config = {'download': False, 'batch_size': 16}
+        config = {"download": False, "batch_size": 16}
 
         try:
             train_loader, val_loader, test_loader = create_data_loaders(config)
@@ -143,7 +136,7 @@ class TestDataLoaderFactory:
 
     def test_create_data_loaders_invalid_config(self):
         """Test data loader factory with invalid config."""
-        config = {'batch_size': 0, 'download': False}
+        config = {"batch_size": 0, "download": False}
 
         with pytest.raises(DataLoadingError):
             create_data_loaders(config)

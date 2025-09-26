@@ -14,6 +14,7 @@ from dataclasses import dataclass, asdict, field
 
 import sys
 from pathlib import Path
+
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 from src.utils.exceptions import ConfigurationError
@@ -25,6 +26,7 @@ logger = get_logger(__name__)
 @dataclass
 class DataConfig:
     """Data loading configuration."""
+
     data_dir: str = "./data"
     batch_size: int = 64
     validation_split: float = 0.1
@@ -37,30 +39,32 @@ class DataConfig:
 @dataclass
 class ModelConfig:
     """Model architecture configuration."""
+
     num_classes: int = 10
     input_channels: int = 1
     conv_channels: tuple = (32, 64, 128)
     fc_hidden_dims: tuple = (256, 128)
     dropout_rate: float = 0.5
     use_batch_norm: bool = True
-    activation: str = 'relu'
+    activation: str = "relu"
 
 
 @dataclass
 class TrainingConfig:
     """Training configuration."""
+
     epochs: int = 10
     learning_rate: float = 0.001
-    optimizer: str = 'adam'
-    scheduler: str = 'plateau'
+    optimizer: str = "adam"
+    scheduler: str = "plateau"
     scheduler_params: Dict[str, Any] = field(default_factory=dict)
-    criterion: str = 'cross_entropy'
+    criterion: str = "cross_entropy"
     early_stopping_patience: int = 5
     save_checkpoints: bool = True
-    checkpoint_dir: str = 'artifacts/models/checkpoints'
+    checkpoint_dir: str = "artifacts/models/checkpoints"
     save_best_only: bool = True
     validation_frequency: int = 1
-    device: str = 'auto'
+    device: str = "auto"
     mixed_precision: bool = False
     gradient_clip_val: Optional[float] = None
 
@@ -68,7 +72,8 @@ class TrainingConfig:
 @dataclass
 class EvaluationConfig:
     """Evaluation configuration."""
-    device: str = 'auto'
+
+    device: str = "auto"
     batch_size: int = 64
     num_classes: int = 10
     class_names: list = field(default_factory=lambda: [str(i) for i in range(10)])
@@ -81,6 +86,7 @@ class EvaluationConfig:
 @dataclass
 class ReleaseThresholds:
     """Model release thresholds."""
+
     min_accuracy: float = 0.95
     min_precision: float = 0.9
     min_recall: float = 0.9
@@ -94,6 +100,7 @@ class ReleaseThresholds:
 @dataclass
 class LoggingConfig:
     """Logging configuration."""
+
     log_level: str = "INFO"
     log_file: Optional[str] = "logs/mlops_pipeline.log"
     log_format: Optional[str] = None
@@ -104,6 +111,7 @@ class LoggingConfig:
 @dataclass
 class MLOpsConfig:
     """Complete MLOps pipeline configuration."""
+
     data: DataConfig = field(default_factory=DataConfig)
     model: ModelConfig = field(default_factory=ModelConfig)
     training: TrainingConfig = field(default_factory=TrainingConfig)
@@ -137,7 +145,7 @@ class ConfigManager:
         self,
         config_file: Optional[str] = None,
         env_prefix: str = "MLOPS_",
-        validate: bool = True
+        validate: bool = True,
     ) -> MLOpsConfig:
         """
         Load configuration from multiple sources.
@@ -192,14 +200,19 @@ class ConfigManager:
                 logger.warning(f"Configuration file not found: {config_file}")
                 return {}
 
-            if config_path.suffix.lower() == '.yaml' or config_path.suffix.lower() == '.yml':
-                with open(config_path, 'r') as f:
+            if (
+                config_path.suffix.lower() == ".yaml"
+                or config_path.suffix.lower() == ".yml"
+            ):
+                with open(config_path, "r") as f:
                     return yaml.safe_load(f) or {}
-            elif config_path.suffix.lower() == '.json':
-                with open(config_path, 'r') as f:
+            elif config_path.suffix.lower() == ".json":
+                with open(config_path, "r") as f:
                     return json.load(f) or {}
             else:
-                raise ConfigurationError(f"Unsupported configuration file format: {config_path.suffix}")
+                raise ConfigurationError(
+                    f"Unsupported configuration file format: {config_path.suffix}"
+                )
 
         except Exception as e:
             logger.error(f"Failed to load config file {config_file}: {e}")
@@ -213,10 +226,10 @@ class ConfigManager:
             for key, value in os.environ.items():
                 if key.startswith(prefix):
                     # Convert environment variable to config key
-                    config_key = key[len(prefix):].lower()
+                    config_key = key[len(prefix) :].lower()
 
                     # Parse nested keys (e.g., MLOPS_TRAINING_EPOCHS -> training.epochs)
-                    key_parts = config_key.split('_')
+                    key_parts = config_key.split("_")
                     current_dict = env_config
 
                     for part in key_parts[:-1]:
@@ -237,8 +250,8 @@ class ConfigManager:
     def _parse_env_value(self, value: str) -> Union[str, int, float, bool]:
         """Parse environment variable value to appropriate type."""
         # Boolean values
-        if value.lower() in ('true', 'false'):
-            return value.lower() == 'true'
+        if value.lower() in ("true", "false"):
+            return value.lower() == "true"
 
         # Try integer
         try:
@@ -255,12 +268,18 @@ class ConfigManager:
         # Return as string
         return value
 
-    def _merge_configs(self, base_config: Dict[str, Any], override_config: Dict[str, Any]) -> Dict[str, Any]:
+    def _merge_configs(
+        self, base_config: Dict[str, Any], override_config: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Merge configuration dictionaries."""
         result = base_config.copy()
 
         for key, value in override_config.items():
-            if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            if (
+                key in result
+                and isinstance(result[key], dict)
+                and isinstance(value, dict)
+            ):
                 result[key] = self._merge_configs(result[key], value)
             else:
                 result[key] = value
@@ -271,16 +290,29 @@ class ConfigManager:
         """Convert dictionary to configuration object."""
         try:
             # Extract nested configurations
-            data_config = DataConfig(**config_dict.get('data', {}))
-            model_config = ModelConfig(**config_dict.get('model', {}))
-            training_config = TrainingConfig(**config_dict.get('training', {}))
-            evaluation_config = EvaluationConfig(**config_dict.get('evaluation', {}))
-            release_thresholds = ReleaseThresholds(**config_dict.get('release_thresholds', {}))
-            logging_config = LoggingConfig(**config_dict.get('logging', {}))
+            data_config = DataConfig(**config_dict.get("data", {}))
+            model_config = ModelConfig(**config_dict.get("model", {}))
+            training_config = TrainingConfig(**config_dict.get("training", {}))
+            evaluation_config = EvaluationConfig(**config_dict.get("evaluation", {}))
+            release_thresholds = ReleaseThresholds(
+                **config_dict.get("release_thresholds", {})
+            )
+            logging_config = LoggingConfig(**config_dict.get("logging", {}))
 
             # Create main configuration
-            main_config_dict = {k: v for k, v in config_dict.items()
-                              if k not in ['data', 'model', 'training', 'evaluation', 'release_thresholds', 'logging']}
+            main_config_dict = {
+                k: v
+                for k, v in config_dict.items()
+                if k
+                not in [
+                    "data",
+                    "model",
+                    "training",
+                    "evaluation",
+                    "release_thresholds",
+                    "logging",
+                ]
+            }
 
             config = MLOpsConfig(
                 data=data_config,
@@ -289,7 +321,7 @@ class ConfigManager:
                 evaluation=evaluation_config,
                 release_thresholds=release_thresholds,
                 logging=logging_config,
-                **main_config_dict
+                **main_config_dict,
             )
 
             return config
@@ -339,11 +371,11 @@ class ConfigManager:
 
             config_dict = asdict(config)
 
-            if filename.endswith('.yaml') or filename.endswith('.yml'):
-                with open(filepath, 'w') as f:
+            if filename.endswith(".yaml") or filename.endswith(".yml"):
+                with open(filepath, "w") as f:
                     yaml.dump(config_dict, f, default_flow_style=False, indent=2)
-            elif filename.endswith('.json'):
-                with open(filepath, 'w') as f:
+            elif filename.endswith(".json"):
+                with open(filepath, "w") as f:
                     json.dump(config_dict, f, indent=2)
             else:
                 raise ConfigurationError(f"Unsupported file format: {filename}")
