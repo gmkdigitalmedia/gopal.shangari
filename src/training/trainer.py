@@ -211,7 +211,8 @@ class ModelTrainer:
             if self.device.type == "cuda":
                 logger.info(f"GPU: {torch.cuda.get_device_name()}")
                 gpu_memory = (
-                    torch.cuda.get_device_properties(self.device).total_memory // 1024**3
+                    torch.cuda.get_device_properties(self.device).total_memory
+                    // 1024**3
                 )
                 logger.info(f"GPU Memory: {gpu_memory} GB")
 
