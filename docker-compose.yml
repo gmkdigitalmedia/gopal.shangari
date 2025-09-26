@@ -1,0 +1,113 @@
+version: '3.8'
+
+services:
+  # Complete pipeline service
+  mlops-pipeline:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: mnist-mlops-pipeline
+    environment:
+      - MLOPS_LOGGING_LOG_LEVEL=INFO
+      - MLOPS_RANDOM_SEED=42
+    volumes:
+      - ./artifacts:/app/artifacts
+      - ./logs:/app/logs
+      - ./data:/app/data
+      - ./config:/app/config
+    networks:
+      - mlops-network
+
+  # Training service
+  mlops-training:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: training
+    container_name: mnist-mlops-training
+    environment:
+      - MLOPS_TRAINING_EPOCHS=15
+      - MLOPS_TRAINING_LEARNING_RATE=0.001
+      - MLOPS_TRAINING_DEVICE=auto
+      - MLOPS_LOGGING_LOG_LEVEL=INFO
+    volumes:
+      - ./artifacts:/app/artifacts
+      - ./logs:/app/logs
+      - ./data:/app/data
+      - ./config:/app/config
+    networks:
+      - mlops-network
+    profiles:
+      - training
+
+  # Evaluation service
+  mlops-evaluation:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: evaluation
+    container_name: mnist-mlops-evaluation
+    environment:
+      - MLOPS_EVALUATION_DEVICE=auto
+      - MLOPS_LOGGING_LOG_LEVEL=INFO
+    volumes:
+      - ./artifacts:/app/artifacts
+      - ./logs:/app/logs
+      - ./data:/app/data
+      - ./config:/app/config
+    networks:
+      - mlops-network
+    profiles:
+      - evaluation
+
+  # Development service with Jupyter
+  mlops-development:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: mnist-mlops-dev
+    ports:
+      - "8888:8888"
+      - "6006:6006"  # TensorBoard port
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+      - MLOPS_LOGGING_LOG_LEVEL=DEBUG
+    volumes:
+      - .:/app
+      - ./artifacts:/app/artifacts
+      - ./logs:/app/logs
+      - ./data:/app/data
+    networks:
+      - mlops-network
+    profiles:
+      - development
+    command: >
+      bash -c "
+        jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token='' &
+        tensorboard --logdir=logs --host=0.0.0.0 --port=6006 &
+        tail -f /dev/null
+      "
+
+  # Monitoring service (optional)
+  mlops-monitoring:
+    image: prom/prometheus:latest
+    container_name: mnist-mlops-monitoring
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - mlops-network
+    profiles:
+      - monitoring
+
+networks:
+  mlops-network:
+    driver: bridge
+
+volumes:
+  mlops-data:
+  mlops-artifacts:
+  mlops-logs:

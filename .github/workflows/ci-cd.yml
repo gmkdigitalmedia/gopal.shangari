@@ -1,0 +1,386 @@
+name: MLOps CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run daily at 2 AM UTC for regular model validation
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      run_training:
+        description: 'Run full training pipeline'
+        required: false
+        default: false
+        type: boolean
+      run_evaluation:
+        description: 'Run model evaluation only'
+        required: false
+        default: true
+        type: boolean
+
+env:
+  PYTHON_VERSION: '3.10'
+  PYTORCH_VERSION: '2.0.1'
+
+jobs:
+  # Job 1: Code Quality and Testing
+  code-quality:
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install flake8 black pytest pytest-cov mypy
+
+    - name: Run code formatting check
+      run: |
+        black --check --diff src/ main.py
+
+    - name: Run linting
+      run: |
+        flake8 src/ main.py --max-line-length=100 --ignore=E203,W503
+
+    - name: Run type checking
+      run: |
+        mypy src/ --ignore-missing-imports
+
+    - name: Run unit tests
+      run: |
+        pytest tests/ -v --cov=src --cov-report=xml --cov-report=html
+
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+
+  # Job 2: Docker Build and Test
+  docker-build:
+    runs-on: ubuntu-22.04
+    needs: code-quality
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Build Docker image
+      run: |
+        docker build --target production -t mnist-mlops:test .
+
+  # Job 3: Model Training and Validation
+  model-training:
+    runs-on: ubuntu-22.04
+    needs: [code-quality, docker-build]
+    if: github.event.inputs.run_training == 'true' || github.event_name == 'schedule'
+
+    strategy:
+      matrix:
+        device: [cpu]  # Add gpu if available
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Create CI training configuration
+      run: |
+        cat > config/ci_config.yaml << EOF
+        experiment_name: "ci_mnist_experiment"
+        random_seed: 42
+        output_dir: "artifacts"
+
+        data:
+          batch_size: 128
+          validation_split: 0.1
+          download: true
+
+        model:
+          conv_channels: [16, 32]  # Smaller for CI
+          fc_hidden_dims: [64]
+
+        training:
+          epochs: 2  # Quick training for CI
+          learning_rate: 0.01
+          device: ${{ matrix.device }}
+          early_stopping_patience: 1
+
+        release_thresholds:
+          min_accuracy: 0.8  # Lower threshold for CI
+          min_precision: 0.7
+          min_recall: 0.7
+          min_f1_score: 0.7
+        EOF
+
+    - name: Run training pipeline
+      run: |
+        python main.py --config config/ci_config.yaml --mode train
+
+    - name: Upload training artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: training-artifacts-${{ matrix.device }}
+        path: |
+          artifacts/
+          logs/
+        retention-days: 7
+
+  # Job 4: Model Evaluation
+  model-evaluation:
+    runs-on: ubuntu-22.04
+    needs: [code-quality, docker-build]
+    if: always() && (github.event.inputs.run_evaluation == 'true' || needs.model-training.result == 'success')
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Download training artifacts (if available)
+      uses: actions/download-artifact@v3
+      with:
+        name: training-artifacts-cpu
+      continue-on-error: true
+
+    - name: Run quick evaluation test
+      run: |
+        # Create a minimal evaluation test
+        python -c "
+        import sys
+        sys.path.append('src')
+        from src.models import MNISTCNNModel
+        from src.data import create_data_loaders
+        from src.evaluation import evaluate_model
+
+        # Create model and minimal data
+        model = MNISTCNNModel(conv_channels=(8, 16), fc_hidden_dims=(32,))
+        _, _, test_loader = create_data_loaders({'batch_size': 32, 'download': True})
+
+        # Run evaluation with relaxed thresholds
+        results, assessment = evaluate_model(
+            model, test_loader,
+            config={'batch_size': 32, 'detailed_report': False},
+            release_thresholds={'min_accuracy': 0.1},  # Very low for untrained model
+            output_dir='artifacts/evaluation'
+        )
+
+        print(f'Evaluation completed. Test accuracy: {results[\"accuracy\"]:.4f}')
+        print(f'Release recommendation: {assessment[\"release_recommendation\"]}')
+        "
+
+  # Job 5: Security Scanning
+  security-scan:
+    runs-on: ubuntu-22.04
+    needs: code-quality
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Bandit security scan
+      run: |
+        pip install bandit
+        bandit -r src/ -f json -o bandit-report.json || true
+
+    - name: Run Safety check for dependencies
+      run: |
+        pip install safety
+        safety check --json --output safety-report.json || true
+
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+          safety-report.json
+        retention-days: 30
+
+  # Job 6: Performance Benchmarking
+  performance-benchmark:
+    runs-on: ubuntu-22.04
+    needs: model-training
+    if: needs.model-training.result == 'success'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Download training artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: training-artifacts-cpu
+
+    - name: Run performance benchmark
+      run: |
+        python -c "
+        import time
+        import torch
+        import sys
+        sys.path.append('src')
+        from src.models import MNISTCNNModel
+
+        # Create model for benchmarking
+        model = MNISTCNNModel()
+        model.eval()
+
+        # Benchmark inference time
+        dummy_input = torch.randn(1, 1, 28, 28)
+
+        # Warmup
+        for _ in range(10):
+            with torch.no_grad():
+                _ = model(dummy_input)
+
+        # Benchmark
+        times = []
+        for _ in range(100):
+            start = time.time()
+            with torch.no_grad():
+                _ = model(dummy_input)
+            times.append((time.time() - start) * 1000)
+
+        avg_time = sum(times) / len(times)
+        print(f'Average inference time: {avg_time:.2f} ms')
+
+        # Check if within acceptable range
+        if avg_time > 50:  # 50ms threshold
+            print('WARNING: Inference time exceeds threshold')
+        else:
+            print('Performance benchmark passed')
+        "
+
+  # Job 7: Model Registry and Deployment Preparation
+  model-registry:
+    runs-on: ubuntu-22.04
+    needs: [model-training, model-evaluation, performance-benchmark]
+    if: needs.model-training.result == 'success' && github.ref == 'refs/heads/main'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download training artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: training-artifacts-cpu
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build and push production image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        target: production
+        push: true
+        tags: |
+          ghcr.io/${{ github.repository }}/mnist-mlops:latest
+          ghcr.io/${{ github.repository }}/mnist-mlops:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Create model package
+      run: |
+        # Package model artifacts
+        tar -czf model-package-${{ github.sha }}.tar.gz artifacts/ config/ logs/
+
+    - name: Upload model package
+      uses: actions/upload-artifact@v3
+      with:
+        name: model-package
+        path: model-package-${{ github.sha }}.tar.gz
+        retention-days: 90
+
+  # Job 8: Notification and Reporting
+  notify:
+    runs-on: ubuntu-22.04
+    needs: [code-quality, docker-build, model-training, model-evaluation, security-scan]
+    if: always()
+
+    steps:
+    - name: Generate pipeline report
+      run: |
+        echo "# MLOps Pipeline Report" > pipeline-report.md
+        echo "" >> pipeline-report.md
+        echo "## Job Status Summary" >> pipeline-report.md
+        echo "- Code Quality: ${{ needs.code-quality.result }}" >> pipeline-report.md
+        echo "- Docker Build: ${{ needs.docker-build.result }}" >> pipeline-report.md
+        echo "- Model Training: ${{ needs.model-training.result }}" >> pipeline-report.md
+        echo "- Model Evaluation: ${{ needs.model-evaluation.result }}" >> pipeline-report.md
+        echo "- Security Scan: ${{ needs.security-scan.result }}" >> pipeline-report.md
+        echo "" >> pipeline-report.md
+        echo "## Pipeline Details" >> pipeline-report.md
+        echo "- Commit SHA: ${{ github.sha }}" >> pipeline-report.md
+        echo "- Branch: ${{ github.ref }}" >> pipeline-report.md
+        echo "- Triggered by: ${{ github.event_name }}" >> pipeline-report.md
+        echo "- Run ID: ${{ github.run_id }}" >> pipeline-report.md
+
+    - name: Upload pipeline report
+      uses: actions/upload-artifact@v3
+      with:
+        name: pipeline-report
+        path: pipeline-report.md
+        retention-days: 30

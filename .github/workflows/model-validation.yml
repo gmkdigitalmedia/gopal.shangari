@@ -1,0 +1,77 @@
+name: Model Validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      model_path:
+        description: 'Path to model for validation'
+        required: true
+        type: string
+      evaluation_config:
+        description: 'Evaluation configuration file'
+        required: false
+        default: 'config/default_config.yaml'
+        type: string
+
+jobs:
+  validate-model:
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.9
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Download model artifacts
+      run: |
+        # In a real scenario, this would download from a model registry
+        echo "Model path: ${{ github.event.inputs.model_path }}"
+        echo "This would download the model from the specified path"
+
+    - name: Validate model architecture
+      run: |
+        python -c "
+        import sys
+        sys.path.append('src')
+        from src.models import MNISTCNNModel
+
+        # Test model creation
+        model = MNISTCNNModel()
+        print(f'Model created with {model.count_parameters()} parameters')
+
+        # Test model validation
+        if model.validate_model():
+            print(' Model architecture validation passed')
+        else:
+            print(' Model architecture validation failed')
+            sys.exit(1)
+        "
+
+    - name: Run model evaluation
+      run: |
+        python main.py --config ${{ github.event.inputs.evaluation_config }} --mode evaluate || true
+
+    - name: Generate validation report
+      run: |
+        echo "# Model Validation Report" > validation-report.md
+        echo "" >> validation-report.md
+        echo "## Validation Details" >> validation-report.md
+        echo "- Model Path: ${{ github.event.inputs.model_path }}" >> validation-report.md
+        echo "- Config Used: ${{ github.event.inputs.evaluation_config }}" >> validation-report.md
+        echo "- Validation Date: $(date)" >> validation-report.md
+
+    - name: Upload validation report
+      uses: actions/upload-artifact@v3
+      with:
+        name: validation-report
+        path: validation-report.md
+        retention-days: 30

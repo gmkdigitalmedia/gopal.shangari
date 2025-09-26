@@ -1,0 +1,36 @@
+# Evaluation-focused configuration
+experiment_name: "mnist_evaluation_experiment"
+random_seed: 42
+output_dir: "artifacts"
+
+data:
+  data_dir: "./data"
+  batch_size: 256
+  validation_split: 0.0  # No validation split needed for evaluation
+  num_workers: 4
+  pin_memory: true
+  download: true
+
+evaluation:
+  device: "auto"
+  batch_size: 256
+  num_classes: 10
+  class_names: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+  save_predictions: true
+  save_probabilities: true
+  calculate_roc_auc: true
+  detailed_report: true
+
+release_thresholds:
+  min_accuracy: 0.97
+  min_precision: 0.92
+  min_recall: 0.92
+  min_f1_score: 0.92
+  max_loss: 0.15
+  min_per_class_accuracy: 0.85
+  max_inference_time_ms: 75.0
+  min_confidence_threshold: 0.75
+
+logging:
+  log_level: "INFO"
+  log_file: "logs/evaluation_experiment.log"

@@ -1,0 +1,58 @@
+# Training-focused configuration
+experiment_name: "mnist_training_experiment"
+random_seed: 42
+output_dir: "artifacts"
+
+data:
+  data_dir: "./data"
+  batch_size: 128
+  validation_split: 0.15
+  num_workers: 4
+  pin_memory: true
+  download: true
+
+model:
+  num_classes: 10
+  input_channels: 1
+  conv_channels: [64, 128, 256]
+  fc_hidden_dims: [512, 256]
+  dropout_rate: 0.3
+  use_batch_norm: true
+  activation: "relu"
+
+training:
+  epochs: 25
+  learning_rate: 0.001
+  optimizer: "adamw"
+  scheduler: "cosine"
+  scheduler_params:
+    T_max: 25
+  criterion: "cross_entropy"
+  early_stopping_patience: 7
+  save_checkpoints: true
+  checkpoint_dir: "artifacts/models/checkpoints"
+  save_best_only: false
+  validation_frequency: 1
+  device: "auto"
+  mixed_precision: true
+  gradient_clip_val: 1.0
+
+evaluation:
+  device: "auto"
+  batch_size: 128
+  detailed_report: true
+  calculate_roc_auc: true
+
+release_thresholds:
+  min_accuracy: 0.98
+  min_precision: 0.95
+  min_recall: 0.95
+  min_f1_score: 0.95
+  max_loss: 0.1
+  min_per_class_accuracy: 0.9
+  max_inference_time_ms: 50.0
+  min_confidence_threshold: 0.8
+
+logging:
+  log_level: "INFO"
+  log_file: "logs/training_experiment.log"
