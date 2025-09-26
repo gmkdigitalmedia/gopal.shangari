@@ -24,12 +24,12 @@ import torch
 from pathlib import Path
 from typing import Dict, Any
 
-# Add src to path for imports
-sys.path.append(str(Path(__file__).parent / "src"))
+# Add src to path for imports and ensure correct working directory
+script_dir = Path(__file__).parent.absolute()
+sys.path.append(str(script_dir / "src"))
 
 # Ensure we're working from the correct directory
 if not Path.cwd().name == "gopal.shangari":
-    script_dir = Path(__file__).parent.absolute()
     if script_dir.name == "gopal.shangari":
         os.chdir(script_dir)
     else:
@@ -41,13 +41,13 @@ if not Path.cwd().name == "gopal.shangari":
                 break
             current_dir = current_dir.parent
 
-from src.data import create_data_loaders
-from src.models import create_model, MNISTCNNModel
-from src.training import train_model
-from src.evaluation import evaluate_model
-from src.utils import setup_logging, get_logger, create_run_logger
-from src.utils.exceptions import MLOpsError
-from config.config import load_config, MLOpsConfig
+from src.data import create_data_loaders  # noqa: E402
+from src.models import create_model, MNISTCNNModel  # noqa: E402
+from src.training import train_model  # noqa: E402
+from src.evaluation import evaluate_model  # noqa: E402
+from src.utils import setup_logging, get_logger, create_run_logger  # noqa: E402
+from src.utils.exceptions import MLOpsError  # noqa: E402
+from config.config import load_config, MLOpsConfig  # noqa: E402
 
 logger = get_logger(__name__)
 
@@ -523,7 +523,8 @@ def main():
 
             print("\nTraining completed!")
             print(
-                f"Best validation accuracy: {training_results['final_metrics'].get('best_val_accuracy', 0):.4f}"
+                f"Best validation accuracy: "
+                f"{training_results['final_metrics'].get('best_val_accuracy', 0):.4f}"
             )
 
         elif args.mode == "evaluate":

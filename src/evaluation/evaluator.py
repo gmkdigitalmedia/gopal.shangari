@@ -28,7 +28,7 @@ from sklearn.metrics import (
 from sklearn.preprocessing import label_binarize
 
 from ..models.cnn_model import MNISTCNNModel
-from ..utils.exceptions import EvaluationError, ModelReleaseError
+from ..utils.exceptions import EvaluationError
 from ..utils.logger import get_logger, MLOpsLogger
 
 logger = get_logger(__name__)

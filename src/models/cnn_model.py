@@ -8,7 +8,7 @@ proper initialization, and extensive validation capabilities.
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Tuple
 from pathlib import Path
 import json
 

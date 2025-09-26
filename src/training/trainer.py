@@ -5,11 +5,9 @@ Provides a robust training framework with checkpointing, early stopping,
 learning rate scheduling, and comprehensive metrics tracking.
 """
 
-import os
 import time
-import json
 from pathlib import Path
-from typing import Dict, Any, Optional, Tuple, List
+from typing import Dict, Any, Optional, Tuple
 from dataclasses import dataclass, asdict
 
 import torch
@@ -212,9 +210,10 @@ class ModelTrainer:
 
             if self.device.type == "cuda":
                 logger.info(f"GPU: {torch.cuda.get_device_name()}")
-                logger.info(
-                    f"GPU Memory: {torch.cuda.get_device_properties(self.device).total_memory // 1024**3} GB"
+                gpu_memory = (
+                    torch.cuda.get_device_properties(self.device).total_memory // 1024**3
                 )
+                logger.info(f"GPU Memory: {gpu_memory} GB")
 
         except Exception as e:
             raise TrainingError(f"Failed to setup device: {e}")
