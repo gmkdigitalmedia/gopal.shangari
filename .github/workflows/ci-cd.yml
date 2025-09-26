@@ -105,9 +105,8 @@ jobs:
 
     - name: Run training pipeline
       run: |
-        export PYTHONPATH="${PYTHONPATH}:$(pwd)"
         cd /home/runner/work/gopal.shangari/gopal.shangari
-        python main.py --config config/ci_config.yaml --mode train
+        PYTHONPATH=. python main.py --config config/ci_config.yaml --mode train
 
     - name: Upload training artifacts
       uses: actions/upload-artifact@v4
@@ -146,9 +145,8 @@ jobs:
     - name: Run quick evaluation test
       run: |
         # Create a minimal evaluation test
-        export PYTHONPATH="${PYTHONPATH}:$(pwd)"
         cd /home/runner/work/gopal.shangari/gopal.shangari
-        python -c "
+        PYTHONPATH=. python -c "
         import sys
         sys.path.append('src')
         from src.models import MNISTCNNModel
@@ -224,9 +222,8 @@ jobs:
 
     - name: Run performance benchmark
       run: |
-        export PYTHONPATH="${PYTHONPATH}:$(pwd)"
         cd /home/runner/work/gopal.shangari/gopal.shangari
-        python -c "
+        PYTHONPATH=. python -c "
         import time
         import torch
         import sys
