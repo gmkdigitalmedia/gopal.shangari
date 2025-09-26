@@ -8,7 +8,7 @@ proper initialization, and extensive validation capabilities.
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, Optional
 from pathlib import Path
 import json
 
@@ -108,7 +108,7 @@ class MNISTCNNModel(nn.Module):
         try:
             # Convolutional layers
             self.conv_layers = nn.ModuleList()
-            self.bn_layers = nn.ModuleList() if self.use_batch_norm else None
+            self.bn_layers: Optional[nn.ModuleList] = nn.ModuleList() if self.use_batch_norm else None
 
             in_channels = self.input_channels
             for i, out_channels in enumerate(self.conv_channels):
@@ -119,7 +119,7 @@ class MNISTCNNModel(nn.Module):
                 self.conv_layers.append(conv_layer)
 
                 # Batch normalization
-                if self.use_batch_norm:
+                if self.use_batch_norm and self.bn_layers is not None:
                     self.bn_layers.append(nn.BatchNorm2d(out_channels))
 
                 in_channels = out_channels
@@ -132,14 +132,14 @@ class MNISTCNNModel(nn.Module):
 
             # Fully connected layers
             self.fc_layers = nn.ModuleList()
-            self.fc_bn_layers = nn.ModuleList() if self.use_batch_norm else None
+            self.fc_bn_layers: Optional[nn.ModuleList] = nn.ModuleList() if self.use_batch_norm else None
 
             fc_input_size = conv_output_size
             for i, hidden_dim in enumerate(self.fc_hidden_dims):
                 fc_layer = nn.Linear(fc_input_size, hidden_dim)
                 self.fc_layers.append(fc_layer)
 
-                if self.use_batch_norm:
+                if self.use_batch_norm and self.fc_bn_layers is not None:
                     self.fc_bn_layers.append(nn.BatchNorm1d(hidden_dim))
 
                 fc_input_size = hidden_dim
@@ -208,7 +208,7 @@ class MNISTCNNModel(nn.Module):
             for i, conv_layer in enumerate(self.conv_layers):
                 x = conv_layer(x)
 
-                if self.use_batch_norm:
+                if self.use_batch_norm and self.bn_layers is not None:
                     x = self.bn_layers[i](x)
 
                 x = self.activation(x)
@@ -224,7 +224,7 @@ class MNISTCNNModel(nn.Module):
             for i, fc_layer in enumerate(self.fc_layers):
                 x = fc_layer(x)
 
-                if self.use_batch_norm:
+                if self.use_batch_norm and self.fc_bn_layers is not None:
                     x = self.fc_bn_layers[i](x)
 
                 x = self.activation(x)
@@ -311,8 +311,8 @@ class MNISTCNNModel(nn.Module):
             include_config: Whether to save model configuration
         """
         try:
-            filepath = Path(filepath)
-            filepath.parent.mkdir(parents=True, exist_ok=True)
+            filepath_path = Path(filepath)
+            filepath_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Save model state
             save_dict = {
@@ -320,15 +320,15 @@ class MNISTCNNModel(nn.Module):
                 "model_info": self.get_model_info(),
             }
 
-            torch.save(save_dict, filepath)
+            torch.save(save_dict, filepath_path)
 
             # Save configuration separately
             if include_config:
-                config_path = filepath.with_suffix(".json")
+                config_path = filepath_path.with_suffix(".json")
                 with open(config_path, "w") as f:
                     json.dump(self.get_model_info(), f, indent=2)
 
-            logger.info(f"Model saved to {filepath}")
+            logger.info(f"Model saved to {filepath_path}")
 
         except Exception as e:
             logger.error(f"Failed to save model: {e}")
@@ -347,12 +347,12 @@ class MNISTCNNModel(nn.Module):
             Loaded model instance
         """
         try:
-            filepath = Path(filepath)
-            if not filepath.exists():
-                raise ModelError(f"Model file not found: {filepath}")
+            filepath_path = Path(filepath)
+            if not filepath_path.exists():
+                raise ModelError(f"Model file not found: {filepath_path}")
 
             # Load saved data
-            checkpoint = torch.load(filepath, map_location=device)
+            checkpoint = torch.load(filepath_path, map_location=device)
             model_info = checkpoint["model_info"]
 
             # Create model instance
@@ -369,7 +369,7 @@ class MNISTCNNModel(nn.Module):
             # Load state dict
             model.load_state_dict(checkpoint["model_state_dict"])
 
-            logger.info(f"Model loaded from {filepath}")
+            logger.info(f"Model loaded from {filepath_path}")
             return model
 
         except Exception as e:

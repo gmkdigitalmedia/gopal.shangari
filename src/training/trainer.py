@@ -31,7 +31,7 @@ class TrainingConfig:
     learning_rate: float = 0.001
     optimizer: str = "adam"
     scheduler: str = "plateau"
-    scheduler_params: Dict[str, Any] = None
+    scheduler_params: Optional[Dict[str, Any]] = None
     criterion: str = "cross_entropy"
     early_stopping_patience: int = 5
     save_checkpoints: bool = True
@@ -59,7 +59,7 @@ class EarlyStopping:
         self.patience = patience
         self.min_delta = min_delta
         self.restore_best = restore_best
-        self.best_score = None
+        self.best_score: Optional[float] = None
         self.counter = 0
         self.best_weights = None
 
@@ -307,7 +307,7 @@ class ModelTrainer:
                 patience=self.config.early_stopping_patience, restore_best=True
             )
         else:
-            self.early_stopping = None
+            self.early_stopping: Optional[EarlyStopping] = None
 
     def _setup_checkpointing(self) -> None:
         """Setup checkpointing."""

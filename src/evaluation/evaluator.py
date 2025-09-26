@@ -41,7 +41,7 @@ class EvaluationConfig:
     device: str = "auto"
     batch_size: int = 64
     num_classes: int = 10
-    class_names: List[str] = None
+    class_names: Optional[List[str]] = None
     save_predictions: bool = True
     save_probabilities: bool = True
     calculate_roc_auc: bool = True
@@ -273,13 +273,14 @@ class ModelEvaluator:
                     cm[i, i] / cm[i, :].sum() if cm[i, :].sum() > 0 else 0.0
                 )
 
-                results["per_class_metrics"][class_name] = {
+                class_metrics = {
                     "precision": float(per_class_precision[i]),
                     "recall": float(per_class_recall[i]),
                     "f1_score": float(per_class_f1[i]),
                     "accuracy": float(class_accuracy),
                     "support": int(cm[i, :].sum()),
                 }
+                results["per_class_metrics"][class_name] = class_metrics
 
             # ROC-AUC (for multiclass)
             if self.config.calculate_roc_auc and self.config.num_classes > 2:
@@ -296,28 +297,31 @@ class ModelEvaluator:
                     results["roc_auc_macro"] = float(roc_auc)
                 except Exception as e:
                     logger.warning(f"Failed to calculate ROC-AUC: {e}")
-                    results["roc_auc_macro"] = None
+                    results["roc_auc_macro"] = 0.0
 
             # Confidence statistics
             max_probabilities = np.max(probabilities, axis=1)
-            results["confidence_stats"] = {
+            confidence_stats = {
                 "mean_confidence": float(np.mean(max_probabilities)),
                 "std_confidence": float(np.std(max_probabilities)),
                 "min_confidence": float(np.min(max_probabilities)),
                 "max_confidence": float(np.max(max_probabilities)),
             }
+            results["confidence_stats"] = confidence_stats
 
             # Prediction distribution
             unique, counts = np.unique(predictions, return_counts=True)
-            results["prediction_distribution"] = {
+            prediction_dist = {
                 str(class_idx): int(count) for class_idx, count in zip(unique, counts)
             }
+            results["prediction_distribution"] = prediction_dist
 
             # Target distribution
             unique, counts = np.unique(targets, return_counts=True)
-            results["target_distribution"] = {
+            target_dist = {
                 str(class_idx): int(count) for class_idx, count in zip(unique, counts)
             }
+            results["target_distribution"] = target_dist
 
             # Detailed classification report
             if self.config.detailed_report:
@@ -491,7 +495,7 @@ class ModelEvaluator:
             raise EvaluationError(f"Release readiness evaluation failed: {e}")
 
     def save_evaluation_results(
-        self, results: Dict[str, Any], output_dir: str, filename: str = None
+        self, results: Dict[str, Any], output_dir: str, filename: Optional[str] = None
     ) -> None:
         """
         Save evaluation results to file.
