@@ -37,7 +37,7 @@ class MNISTCNNModel(nn.Module):
         fc_hidden_dims: Tuple[int, ...] = (256, 128),
         dropout_rate: float = 0.5,
         use_batch_norm: bool = True,
-        activation: str = 'relu'
+        activation: str = "relu",
     ):
         """
         Initialize CNN model.
@@ -90,16 +90,16 @@ class MNISTCNNModel(nn.Module):
         if not (0.0 <= self.dropout_rate <= 1.0):
             raise ValidationError("Dropout rate must be between 0 and 1")
 
-        if self.activation_name not in ['relu', 'leaky_relu', 'tanh', 'sigmoid']:
+        if self.activation_name not in ["relu", "leaky_relu", "tanh", "sigmoid"]:
             raise ValidationError(f"Unsupported activation: {self.activation_name}")
 
     def _get_activation(self) -> nn.Module:
         """Get activation function."""
         activations = {
-            'relu': nn.ReLU(inplace=True),
-            'leaky_relu': nn.LeakyReLU(0.1, inplace=True),
-            'tanh': nn.Tanh(),
-            'sigmoid': nn.Sigmoid()
+            "relu": nn.ReLU(inplace=True),
+            "leaky_relu": nn.LeakyReLU(0.1, inplace=True),
+            "tanh": nn.Tanh(),
+            "sigmoid": nn.Sigmoid(),
         }
         return activations[self.activation_name]
 
@@ -114,8 +114,7 @@ class MNISTCNNModel(nn.Module):
             for i, out_channels in enumerate(self.conv_channels):
                 # Convolutional layer
                 conv_layer = nn.Conv2d(
-                    in_channels, out_channels,
-                    kernel_size=3, padding=1
+                    in_channels, out_channels, kernel_size=3, padding=1
                 )
                 self.conv_layers.append(conv_layer)
 
@@ -164,14 +163,20 @@ class MNISTCNNModel(nn.Module):
         try:
             for module in self.modules():
                 if isinstance(module, nn.Conv2d):
-                    nn.init.kaiming_normal_(module.weight, mode='fan_out', nonlinearity='relu')
+                    nn.init.kaiming_normal_(
+                        module.weight, mode="fan_out", nonlinearity="relu"
+                    )
                     if module.bias is not None:
                         nn.init.constant_(module.bias, 0)
-                elif isinstance(module, nn.BatchNorm2d) or isinstance(module, nn.BatchNorm1d):
+                elif isinstance(module, nn.BatchNorm2d) or isinstance(
+                    module, nn.BatchNorm1d
+                ):
                     nn.init.constant_(module.weight, 1)
                     nn.init.constant_(module.bias, 0)
                 elif isinstance(module, nn.Linear):
-                    nn.init.kaiming_uniform_(module.weight, mode='fan_in', nonlinearity='relu')
+                    nn.init.kaiming_uniform_(
+                        module.weight, mode="fan_in", nonlinearity="relu"
+                    )
                     nn.init.constant_(module.bias, 0)
 
             logger.info("Model weights initialized successfully")
@@ -241,16 +246,18 @@ class MNISTCNNModel(nn.Module):
     def get_model_info(self) -> Dict[str, Any]:
         """Get comprehensive model information."""
         return {
-            'model_type': 'CNN',
-            'num_classes': self.num_classes,
-            'input_channels': self.input_channels,
-            'conv_channels': self.conv_channels,
-            'fc_hidden_dims': self.fc_hidden_dims,
-            'dropout_rate': self.dropout_rate,
-            'use_batch_norm': self.use_batch_norm,
-            'activation': self.activation_name,
-            'total_parameters': self.count_parameters(),
-            'trainable_parameters': sum(p.numel() for p in self.parameters() if p.requires_grad)
+            "model_type": "CNN",
+            "num_classes": self.num_classes,
+            "input_channels": self.input_channels,
+            "conv_channels": self.conv_channels,
+            "fc_hidden_dims": self.fc_hidden_dims,
+            "dropout_rate": self.dropout_rate,
+            "use_batch_norm": self.use_batch_norm,
+            "activation": self.activation_name,
+            "total_parameters": self.count_parameters(),
+            "trainable_parameters": sum(
+                p.numel() for p in self.parameters() if p.requires_grad
+            ),
         }
 
     def validate_model(self, input_shape: Tuple[int, ...] = (1, 1, 28, 28)) -> bool:
@@ -278,7 +285,9 @@ class MNISTCNNModel(nn.Module):
                 # Check output shape
                 expected_shape = (input_shape[0], self.num_classes)
                 if output.shape != expected_shape:
-                    logger.error(f"Output shape mismatch: expected {expected_shape}, got {output.shape}")
+                    logger.error(
+                        f"Output shape mismatch: expected {expected_shape}, got {output.shape}"
+                    )
                     return False
 
                 # Check for NaN or infinite values
@@ -307,16 +316,16 @@ class MNISTCNNModel(nn.Module):
 
             # Save model state
             save_dict = {
-                'model_state_dict': self.state_dict(),
-                'model_info': self.get_model_info()
+                "model_state_dict": self.state_dict(),
+                "model_info": self.get_model_info(),
             }
 
             torch.save(save_dict, filepath)
 
             # Save configuration separately
             if include_config:
-                config_path = filepath.with_suffix('.json')
-                with open(config_path, 'w') as f:
+                config_path = filepath.with_suffix(".json")
+                with open(config_path, "w") as f:
                     json.dump(self.get_model_info(), f, indent=2)
 
             logger.info(f"Model saved to {filepath}")
@@ -326,7 +335,7 @@ class MNISTCNNModel(nn.Module):
             raise ModelError(f"Model saving failed: {e}")
 
     @classmethod
-    def load_model(cls, filepath: str, device: str = 'cpu') -> 'MNISTCNNModel':
+    def load_model(cls, filepath: str, device: str = "cpu") -> "MNISTCNNModel":
         """
         Load model from file.
 
@@ -344,21 +353,21 @@ class MNISTCNNModel(nn.Module):
 
             # Load saved data
             checkpoint = torch.load(filepath, map_location=device)
-            model_info = checkpoint['model_info']
+            model_info = checkpoint["model_info"]
 
             # Create model instance
             model = cls(
-                num_classes=model_info['num_classes'],
-                input_channels=model_info['input_channels'],
-                conv_channels=tuple(model_info['conv_channels']),
-                fc_hidden_dims=tuple(model_info['fc_hidden_dims']),
-                dropout_rate=model_info['dropout_rate'],
-                use_batch_norm=model_info['use_batch_norm'],
-                activation=model_info['activation']
+                num_classes=model_info["num_classes"],
+                input_channels=model_info["input_channels"],
+                conv_channels=tuple(model_info["conv_channels"]),
+                fc_hidden_dims=tuple(model_info["fc_hidden_dims"]),
+                dropout_rate=model_info["dropout_rate"],
+                use_batch_norm=model_info["use_batch_norm"],
+                activation=model_info["activation"],
             )
 
             # Load state dict
-            model.load_state_dict(checkpoint['model_state_dict'])
+            model.load_state_dict(checkpoint["model_state_dict"])
 
             logger.info(f"Model loaded from {filepath}")
             return model

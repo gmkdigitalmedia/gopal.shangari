@@ -99,7 +99,9 @@ class MLOpsLogger:
                 # Check if file handler already exists for this file
                 existing_file_handler = None
                 for handler in self.logger.handlers:
-                    if isinstance(handler, logging.FileHandler) and handler.baseFilename == str(log_path.absolute()):
+                    if isinstance(
+                        handler, logging.FileHandler
+                    ) and handler.baseFilename == str(log_path.absolute()):
                         existing_file_handler = handler
                         break
 
